@@ -9,20 +9,17 @@ class NoDataError(Exception):
 
 class Spotify:
 
-    def __init__(self, client, secret, scope):
+    def __init__(self, to):
+        self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id='1f514e6265264b5c9be5e0a57326ce48',
+                                                            client_secret='9b1d9d7cb6514a6ca936fc1a425a0a05',
+                                                            redirect_uri="http://localhost:8080",
+                                                            scope='playlist-read-private playlist-modify-private playlist-modify-public'))
 
-        print(client, secret, scope, sep=' | ')
-
-        with open('creds.txt') as fh:
-            if len(fh.readlines()) == 0:
-                raise NoDataError
-            else:
-                self.creds = fh.readlines()
-
-        self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client,
-                                                       client_secret=secret,
-                                                       redirect_uri="http://localhost:8080",
-                                                       scope=scope))
+        self.is_playlist = None
+        try:
+            self.is_playlist = self.sp.playlist(to)
+        except:
+            pass
 
 
 class Emoji:
@@ -34,6 +31,7 @@ class Emoji:
 
 if __name__ == '__main__':
     import PySimpleGUI as sg
+
     sg.Window('Test', [[sg.Image(Emoji().thinking, size=(512, 512))]]).read(close=True)
     sg.Window('Test', [[sg.Image(Emoji().alive, size=(512, 512))]]).read(close=True)
     sg.Window('Test', [[sg.Image(Emoji().dead, size=(512, 512))]]).read(close=True)
