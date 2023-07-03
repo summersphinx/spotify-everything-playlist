@@ -1,3 +1,2 @@
-spotipy~=2.22.1
-PySimpleGUI~=4.60.4
-wget~=3.2
+spotipy
+PySimpleGUI
