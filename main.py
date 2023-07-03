@@ -8,13 +8,20 @@ import time
 
 sg.theme(choice(sg.theme_list()))
 os.makedirs(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', exist_ok=True)
-os.chdir(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
-if sg.user_settings_file_exists():
-    sg.user_settings_load()
+# os.chdir(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
+# sg.user_settings_delete_filename(filename='settings.json', path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
+sg.user_settings_filename(path= f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
+
+if sg.user_settings_file_exists(filename='settings.json'):
+    sg.user_settings_load(filename='settings.json')
 else:
     sg.user_settings_set_entry('id', '')
     sg.user_settings_set_entry('exclude', [])
+    sg.user_settings_save(filename='settings.json')
+
 icon = 'https://raw.githubusercontent.com/summersphinx/spotify-everything-playlist/master/Spotify.ico'
+
+settings = sg.UserSettings(path= f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
 
 
 def get_playlists_readable(sp, exclude=[]):
@@ -30,7 +37,6 @@ def get_playlists_readable(sp, exclude=[]):
 
 
 def run(sp, include: list, to):
-    print(sp)
     playlists = []
 
     for each in include:
@@ -80,7 +86,7 @@ def run(sp, include: list, to):
 connect_layout = [
     [
         sg.Column([[sg.Text('Playlist URL')]]),
-        sg.Column([[sg.Input('', s=(33, 1), k='to')]])
+        sg.Column([[sg.Input(settings['id'], s=(33, 1), k='to')]])
     ],
     [sg.Button('Connect')]
 ]
@@ -94,7 +100,7 @@ exclude_center = [
     [sg.Button('Clear', expand_x=True)]
 ]
 exclude_right = [
-    [sg.Listbox(sg.user_settings_get_entry('exclude'), select_mode='LISTBOX_SELECT_MODE_SINGLE', k='exclude',
+    [sg.Listbox(settings['exclude'], select_mode='LISTBOX_SELECT_MODE_SINGLE', k='exclude',
                 s=(40, 10))]
 ]
 exclude_layout = [
@@ -125,46 +131,49 @@ curr_char = '▫'
 sp = None
 while True:
     event, values = wn.read()
-    print(event)
-    print(values)
+    settings = sg.UserSettings(filename='settings.json', path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
 
     if event in [sg.WIN_CLOSED]:
-        sg.user_settings_save()
+        sg.user_settings_save(filename='settings.json')
+        settings = sg.UserSettings(filename='settings.json')
         break
 
     if sp is not None:
-        wn['playlists'].Update(get_playlists_readable(sp, sg.user_settings_get_entry('exclude')))
+        wn['playlists'].Update(get_playlists_readable(sp, settings['exclude']))
 
     if event == 'Connect':
         wn['emoji'].Update(emoji.thinking)
         try:
-            sp = SEP.Spotify(sg.user_settings_get_entry('to')).sp
+            sp = SEP.Spotify(settings['to']).sp
             wn['playlists'].Update(get_playlists_readable(sp))
 
         except:
             sp = None
         if sp is not None:
             wn['emoji'].Update(emoji.alive)
-        print('Balkghswoigh')
 
     if event == 'Add':
         if len(values['playlists']) == 1:
-            sg.user_settings_set_entry('exclude', sg.user_settings_get_entry('exclude').append(values['playlists'][0]))
+            temp = settings['exclude']
+            temp.append(values['playlists'][0])
+            settings['exclude'] = temp
 
     if event == 'Remove':
         if len(values['exclude']) == 1:
-            sg.user_settings_set_entry('exclude', sg.user_settings_get_entry('exclude').remove(values['exclude'][0]))
+            temp = settings['exclude']
+            print(values['exclude'])
+            temp.remove(values['exclude'][0])
+            settings['exclude'] = temp
 
     if event == 'Clear':
-        sg.user_settings_set_entry('exclude', [])
+        settings['exclude'] = []
 
     if event in ['Add', 'Remove', 'Clear']:
-        # print(sg.user_settings_get_entry('exclude'))
-        wn['exclude'].Update(sg.user_settings_get_entry('exclude'))
-        wn['playlists'].Update(get_playlists_readable(sp, sg.user_settings_get_entry('exclude')))
+        temp = settings['exclude']
+        wn['exclude'].Update(temp)
+        wn['playlists'].Update(get_playlists_readable(sp, temp))
 
     if event == 'Run':
-        print(sp)
         if sp is None:
             sg.popup_error("You haven't connected to Spotify yet! Connect in the first tab, then run!")
         else:
@@ -176,6 +185,7 @@ while True:
                         'Something went wrong! Most likely, the playlist you have added does not exist. Try again or edit the value!')
             sg.cprint('Starting! It will take a moment to start. Please be patient . . .')
             time.sleep(2)
-            run(sp, get_playlists_readable(sp, sg.user_settings_get_entry('exclude')), values['to'])
+            temp = settings['exclude']
+            run(sp, get_playlists_readable(sp, temp), values['to'])
 
 wn.close()

@@ -10,8 +10,12 @@ class NoDataError(Exception):
 class Spotify:
 
     def __init__(self, to):
-        self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id='1f514e6265264b5c9be5e0a57326ce48',
-                                                            client_secret='9b1d9d7cb6514a6ca936fc1a425a0a05',
+        print(os.getcwd())
+        with open('SEP/secrets.txt') as fh:
+            secrets = fh.readlines()
+            print(secrets[0][:-1])
+        self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=secrets[0][:-1],
+                                                            client_secret=secrets[1],
                                                             redirect_uri="http://localhost:8080",
                                                             scope='playlist-read-private playlist-modify-private playlist-modify-public'))
 
