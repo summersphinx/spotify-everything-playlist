@@ -6,7 +6,6 @@ from spotipy.oauth2 import SpotifyOAuth
 class NoDataError(Exception):
     pass
 
-
 class Spotify:
 
     def __init__(self, to):
@@ -24,6 +23,9 @@ class Spotify:
             self.is_playlist = self.sp.playlist(to)
         except:
             pass
+
+    def IsURI(self, string):
+        self.sp.playlist(string)
 
 
 class Emoji:

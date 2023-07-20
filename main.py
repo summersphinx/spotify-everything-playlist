@@ -1,16 +1,16 @@
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-import PySimpleGUI as sg
-from random import choice
 import os
-import SEP
 import time
+from random import choice
+
+import PySimpleGUI as sg
+
+import SEP
 
 sg.theme(choice(sg.theme_list()))
 os.makedirs(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', exist_ok=True)
 # os.chdir(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
 # sg.user_settings_delete_filename(filename='settings.json', path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
-sg.user_settings_filename(path= f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
+sg.user_settings_filename(path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
 
 if sg.user_settings_file_exists(filename='settings.json'):
     sg.user_settings_load(filename='settings.json')
@@ -21,10 +21,12 @@ else:
 
 icon = 'https://raw.githubusercontent.com/summersphinx/spotify-everything-playlist/master/Spotify.ico'
 
-settings = sg.UserSettings(path= f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
+settings = sg.UserSettings(path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
 
 
-def get_playlists_readable(sp, exclude=[]):
+def get_playlists_readable(sp, exclude=None):
+    if exclude is None:
+        exclude = []
     results = sp.current_user_playlists()
     playlists = []
     for idx, item in enumerate(results['items']):
@@ -37,6 +39,7 @@ def get_playlists_readable(sp, exclude=[]):
 
 
 def run(sp, include: list, to):
+    settings['id'] = to
     playlists = []
 
     for each in include:
@@ -60,11 +63,10 @@ def run(sp, include: list, to):
 
     if 'spotify:track:None' in res:
         res.remove('spotify:track:None')
-    if 'spotify:track:4Ftjye4r8wZJeqrexjYfPi' in res:
-        res.remove('spotify:track:4Ftjye4r8wZJeqrexjYfPi')
     for each in res:
         if 'local' in each:
             res.remove(each)
+    print(len(res))
     failed = []
 
     def divide_chunks(l, n):
@@ -82,11 +84,11 @@ def run(sp, include: list, to):
     for i in failed:
         sg.cprint(i)
 
-
+print(settings)
 connect_layout = [
     [
         sg.Column([[sg.Text('Playlist URL')]]),
-        sg.Column([[sg.Input(settings['id'], s=(33, 1), k='to')]])
+        sg.Column([[sg.Input(settings['id'], s=(33, 1), k='to'), sg.Text('', k='playlist_name')]])
     ],
     [sg.Button('Connect')]
 ]
@@ -127,30 +129,30 @@ layout = [
 wn = sg.Window('Test', layout, finalize=True, size=(700, 720), icon=icon)
 sg.cprint_set_output_destination(wn, 'log')
 
-curr_char = '▫'
 sp = None
 while True:
     event, values = wn.read()
     settings = sg.UserSettings(filename='settings.json', path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
 
     if event in [sg.WIN_CLOSED]:
-        sg.user_settings_save(filename='settings.json')
-        settings = sg.UserSettings(filename='settings.json')
         break
 
     if sp is not None:
         wn['playlists'].Update(get_playlists_readable(sp, settings['exclude']))
 
     if event == 'Connect':
-        wn['emoji'].Update(emoji.thinking)
-        try:
-            sp = SEP.Spotify(settings['to']).sp
-            wn['playlists'].Update(get_playlists_readable(sp))
 
-        except:
-            sp = None
-        if sp is not None:
-            wn['emoji'].Update(emoji.alive)
+        wn['emoji'].Update(emoji.thinking)
+        sp = SEP.Spotify(settings['to']).sp
+        print(sp)
+        temp = sp.playlist(values['to'])
+        wn['to'].Update(value=temp['id'])
+        wn['playlist_name'].Update(value=temp['name'])
+        sp = SEP.Spotify(settings['to']).sp
+        sp.user_playlist()
+        wn['playlists'].Update(get_playlists_readable(sp, settings['exclude']))
+
+        wn['emoji'].Update(emoji.alive)
 
     if event == 'Add':
         if len(values['playlists']) == 1:
@@ -178,8 +180,7 @@ while True:
             sg.popup_error("You haven't connected to Spotify yet! Connect in the first tab, then run!")
         else:
             try:
-                with open('to.txt', 'w') as fh:
-                    fh.write(values['to'])
+                settings['id'] = values['to']
             except:
                 sg.popup_error(
                         'Something went wrong! Most likely, the playlist you have added does not exist. Try again or edit the value!')
