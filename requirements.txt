@@ -1,2 +1,6 @@
-spotipy
-PySimpleGUI
+spotipy==2.23.0
+PySimpleGUI==4.60.5
+imageio==2.31.2
+Pillow==10.0.0
+cryptography==41.0.3
+requests==2.31.0

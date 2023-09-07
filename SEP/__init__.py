@@ -1,20 +1,25 @@
 import os
 import spotipy
+import imageio.v3 as iio
 from spotipy.oauth2 import SpotifyOAuth
+from PIL import Image
+import things
+
+
+
 
 
 class NoDataError(Exception):
     pass
 
+
 class Spotify:
 
     def __init__(self, to):
         print(os.getcwd())
-        with open('SEP/secrets.txt') as fh:
-            secrets = fh.readlines()
-            print(secrets[0][:-1])
-        self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=secrets[0][:-1],
-                                                            client_secret=secrets[1],
+        invisible = things.Secrets()
+        self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=invisible.id(),
+                                                            client_secret=invisible.password(),
                                                             redirect_uri="http://localhost:8080",
                                                             scope='playlist-read-private playlist-modify-private playlist-modify-public'))
 

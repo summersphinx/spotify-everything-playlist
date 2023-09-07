@@ -1,16 +1,19 @@
+import io
 import os
-import time
 import threading
-from random import choice
+import urllib.request
 
 import PySimpleGUI as sg
+import imageio.v3 as iio
+import requests
+from PIL import Image
 
 import SEP
 
-sg.theme(choice(sg.theme_list()))
+sg.theme("Dark")
 emoji = SEP.Emoji()
 os.makedirs(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', exist_ok=True)
-# os.chdir(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
+os.chdir(f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
 # sg.user_settings_delete_filename(filename='settings.json', path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
 sg.user_settings_filename(path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
 
@@ -22,9 +25,27 @@ else:
     sg.user_settings_set_entry('filter_songs', True)
     sg.user_settings_save(filename='settings.json')
 
-icon = 'https://raw.githubusercontent.com/summersphinx/spotify-everything-playlist/master/Spotify.ico'
+icon = None
+if requests.get('https://www.google.com').status_code == 200:
+    with urllib.request.urlopen(
+            'https://raw.githubusercontent.com/summersphinx/spotify-everything-playlist/master/Spotify.png') as url:
+        icon = io.BytesIO(url.read()).read()
+        print('hi')
+        print(icon)
+        print('bye')
 
 settings = sg.UserSettings(path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP', filename='settings.json')
+
+
+def playlist_pic(sp, wn, playlist):
+    print('hi2')
+    print(playlist)
+    print(sp)
+    print(wn)
+    temp = sp.playlist(playlist)
+    iio.imwrite("img.png", iio.imread(temp['images'][0]['url'], index=None), extension='.png')
+    Image.open('img.png', 'r').resize((80, 80)).save('img.png')
+    wn['playlist_image'].Update(source='img.png')
 
 
 def get_playlists_readable(sp, exclude=None):
@@ -38,10 +59,11 @@ def get_playlists_readable(sp, exclude=None):
         if each[-1:] == '\n':
             each = each[:-1]
         playlists.remove(each)
+        playlists = playlists.sort()
     return playlists
 
 
-def run(sp, include: list, to, sc):
+def run(sp, include: list, to, sc, filter):
     sg.cprint('Starting! It will take a moment to start. Please be patient . . .')
     settings['id'] = to
     playlists = []
@@ -74,7 +96,14 @@ def run(sp, include: list, to, sc):
     for each in res:
         if 'local' in each:
             res.remove(each)
+    if filter:
+        sg.cprint('Removing non songs . . .')
+        for each in res:
+            if 'episode' in each:
+                res.remove(each)
     failed = []
+    res.sort()
+    print(res[0])
 
     def divide_chunks(l, n):
         for i in range(0, len(l), n):
@@ -92,6 +121,7 @@ def run(sp, include: list, to, sc):
     for i in failed:
         sg.cprint(i)
 
+
 connect_layout_left = [
     [
         sg.Column([[sg.Text('Playlist URL')]]),
@@ -101,19 +131,21 @@ connect_layout_left = [
 ]
 
 connect_layout = [
-    [sg.Column(connect_layout_left, expand_x=True), sg.Image(emoji.dead, k='emoji')]
+    [sg.Column(connect_layout_left, expand_x=True), sg.Image(None, k='to_image', expand_x=True),
+     sg.Image(emoji.dead, k='emoji')]
 ]
 
 exclude_left = [
-    [sg.Listbox([], select_mode='LISTBOX_SELECT_MODE_SINGLE', k='playlists', s=(40, 10))]
+    [sg.Listbox([], k='playlists', s=(40, 10), enable_events=True)]
 ]
 exclude_center = [
     [sg.Button('Add', expand_x=True)],
     [sg.Button('Remove', expand_x=True)],
-    [sg.Button('Clear', expand_x=True)]
+    [sg.Button('Clear', expand_x=True)],
+    [sg.Image(None, key='playlist_image')]
 ]
 exclude_right = [
-    [sg.Listbox(settings['exclude'], select_mode='LISTBOX_SELECT_MODE_SINGLE', k='exclude',
+    [sg.Listbox(settings['exclude'], k='exclude',
                 s=(40, 10))]
 ]
 exclude_layout = [
@@ -127,7 +159,6 @@ lay3_layout = [
     [sg.Multiline('', disabled=True, size=(90, 13), k='log')]
 ]
 
-
 layout = [
     [sg.Text('Everything Playlist Maker', font='Arial 18 bold')],
     [sg.Text(
@@ -139,10 +170,11 @@ layout = [
 
 wn = sg.Window('Test', layout, finalize=True, size=(700, 700), icon=icon)
 sg.cprint_set_output_destination(wn, 'log')
-
+lb1 = wn['playlists']
 sp = None
 while True:
     event, values = wn.read()
+
     if values is not None:
         settings['filter_songs'] = values['filter songs']
     settings = sg.UserSettings(filename='settings.json', path=f'{os.getenv("LOCALAPPDATA")}/XPlus Games/SEP')
@@ -150,14 +182,25 @@ while True:
     if event in [sg.WIN_CLOSED]:
         break
 
+    if event == 'playlists':
+        playlist = values['playlists'][0].split(' | ')[1]
+        print('hi4')
+        print(playlist)
+        # SEP.playlist_pic(sp, wn, playlist)
+        b = threading.Thread(target=playlist_pic, args=(sp, wn, playlist))
+        b.run()
+
     if sp is not None:
         wn['playlists'].Update(get_playlists_readable(sp, settings['exclude']))
 
     if event == 'Connect':
-
         wn['emoji'].Update(emoji.thinking)
         sp = SEP.Spotify(settings['to']).sp
         temp = sp.playlist(values['to'])
+        image = iio.imread(temp['images'][0]['url'], index=None)
+        image = iio.imwrite("temp.png", image, extension='.png')
+        image = Image.open('temp.png', 'r').resize((80, 80)).save('temp.png')
+        wn['to_image'].Update(source='temp.png')
         wn['to'].Update(value=temp['id'])
         wn['playlist_name'].Update(value=temp['name'])
         sp = SEP.Spotify(settings['to']).sp
@@ -185,6 +228,13 @@ while True:
         wn['exclude'].Update(temp)
         wn['playlists'].Update(get_playlists_readable(sp, temp))
 
+    if event == 'playlists':
+        print('hi3')
+        print(values['playlists'])
+        if values['playlists'] is not []:
+            lb1.update(scroll_to_index=wn['playlists'].get_list_values().index(values['playlists'][0]))
+            lb1.update(set_to_index=wn['playlists'].get_list_values().index(values['playlists'][0]))
+
     if event == 'Run':
         if sp is None:
             sg.popup_error("You haven't connected to Spotify yet! Connect in the first tab, then run!")
@@ -195,7 +245,8 @@ while True:
                 sg.popup_error(
                         'Something went wrong! Most likely, the playlist you have added does not exist. Try again or edit the value!')
             temp = settings['exclude']
-            x = threading.Thread(target=run, args=(sp, get_playlists_readable(sp, temp), values['to'], wn))
+            x = threading.Thread(target=run,
+                                 args=(sp, get_playlists_readable(sp, temp), values['to'], wn, values['filter songs']))
             # run(sp, get_playlists_readable(sp, temp), values['to'], wn)
             x.start()
 
